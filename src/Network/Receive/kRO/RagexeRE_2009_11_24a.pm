@@ -24,7 +24,7 @@ sub new {
 	my ($class) = @_;
 	my $self = $class->SUPER::new(@_);
 	my %packets = (
-		#//0x07fc,10
+		'07FC' => ['party_leader', 'V2', [qw(old new)]],#10
 		#//0x07fd,-1
 		#//0x07fe,26
 		#//0x07ff,-1
