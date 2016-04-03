@@ -215,7 +215,7 @@ sub new {
 		'014B' => ['GM_silence', 'C Z24', [qw(type name)]], # 27
 		'014C' => ['guild_allies_enemy_list'], # -1
 		'014E' => ['guild_master_member', 'V', [qw(type)]], # 6
-		'0150' => ['guild_info', 'a4 V9 a4 Z24 Z24 Z16', [qw(ID lv conMember maxMember average exp exp_next tax tendency_left_right tendency_down_up emblemID name master castles_string)]], # 110
+		'0150' => ['guild_info', 'a4 V9 a4 Z24 Z24 Z16', [qw(ID lv conMember maxMember userAverageLevel exp exp_next tax tendency_left_right tendency_down_up emblemID name master castles_string)]], # 110
 		'0152' => ['guild_emblem', 'v a4 a4 a*', [qw(len guildID emblemID emblem)]], # -1
 		'0154' => ['guild_members_list'], # -1
 		'0156' => ['guild_member_position_changed', 'v V3', [qw(len accountID charID positionID)]], # -1 # FIXME: this is a variable len message, can hold multiple entries
@@ -226,7 +226,7 @@ sub new {
 		'015F' => ['guild_disband', 'Z40', [qw(reason)]], # 42
 		'0160' => ['guild_member_setting_list'], # -1
 		'0162' => ['guild_skills_list'], # -1
-		'0163' => ['guild_expulsionlist'], # -1
+		'0163' => ['guild_expulsion_list'], # -1
 		'0164' => ['guild_other_list'], # -1
 		'0166' => ['guild_members_title_list'], # -1
 		'0167' => ['guild_create_result', 'C', [qw(type)]], # 3
@@ -237,7 +237,7 @@ sub new {
 		'016F' => ['guild_notice', 'Z60 Z120', [qw(subject notice)]], # 182
 		'0171' => ['guild_ally_request', 'a4 Z24', [qw(ID guildName)]], # 30
 		'0173' => ['guild_alliance', 'C', [qw(flag)]], # 3
-		'0174' => ['guild_position_changed', 'v a4 a4 a4 V Z20', [qw(len ID mode sameID exp position_name)]], # -1 # FIXME: this is a var len message!!!
+		'0174' => ['guild_position_changed', 'v a4 a4 a4 V Z20', [qw(len positionID mode sameID exp positionName)]], # -1 # FIXME: this is a var len message!!!
 		'0176' => ['guild_member_info', 'a4 a4 v5 V3 Z50 Z24', [qw(AID GID head_type head_color sex job lv contribution_exp current_state positionID intro name)]], # 106 # TODO: rename the vars and add sub
 		'0177' => ['identify_list'], # -1
 		'0179' => ['identify', 'v C', [qw(index flag)]], # 5
@@ -279,7 +279,7 @@ sub new {
 		'01B3' => ['npc_image', 'Z64 C', [qw(npc_image type)]], # 67
 		'01B4' => ['guild_emblem_update', 'a4 a4 a2', [qw(ID guildID emblemID)]], # 12
 		'01B5' => ['account_payment_info', 'V2', [qw(D_minute H_minute)]], # 18
-		'01B6' => ['guild_info', 'a4 V9 a4 Z24 Z24 Z16 V', [qw(ID lv conMember maxMember average exp exp_next tax tendency_left_right tendency_down_up emblemID name master castles_string zeny)]], # 114
+		'01B6' => ['guild_info', 'a4 V9 a4 Z24 Z24 Z16 V', [qw(ID lv conMember maxMember userAverageLevel exp exp_next tax tendency_left_right tendency_down_up emblemID name master castles_string zeny)]], # 114
 		'01B8' => ['guild_zeny', 'C', [qw(result)]], # 3
 		'01B9' => ['cast_cancelled', 'a4', [qw(ID)]], # 6
 		'01BE' => ['ask_pngameroom'], # 2
@@ -2028,256 +2028,6 @@ sub gameguard_request {
 	debug "Querying Poseidon\n", "poseidon";
 }
 
-sub guild_allies_enemy_list {
-	my ($self, $args) = @_;
-
-	# Guild Allies/Enemy List
-	# <len>.w (<type>.l <guildID>.l <guild name>.24B).*
-	# type=0 Ally
-	# type=1 Enemy
-
-	# This is the length of the entire packet
-	my $msg = $args->{RAW_MSG};
-	my $len = unpack("v", substr($msg, 2, 2));
-
-	# clear $guild{enemy} and $guild{ally} otherwise bot will misremember alliances -zdivpsa
-	$guild{enemy} = {}; $guild{ally} = {};
-
-	for (my $i = 4; $i < $len; $i += 32) {
-		my ($type, $guildID, $guildName) = unpack('V2 Z24', substr($msg, $i, 32));
-		$guildName = bytesToString($guildName);
-		if ($type) {
-			# Enemy guild
-			$guild{enemy}{$guildID} = $guildName;
-		} else {
-			# Allied guild
-			$guild{ally}{$guildID} = $guildName;
-		}
-		debug "Your guild is ".($type ? 'enemy' : 'ally')." with guild $guildID ($guildName)\n", "guild";
-	}
-}
-
-sub guild_ally_request {
-	my ($self, $args) = @_;
-
-	my $ID = $args->{ID}; # is this a guild ID or account ID? Freya calls it an account ID
-	my $name = bytesToString($args->{guildName}); # Type: String
-
-	message TF("Incoming Request to Ally Guild '%s'\n", $name);
-	$incomingGuild{ID} = $ID;
-	$incomingGuild{Type} = 2;
-	$timeout{ai_guildAutoDeny}{time} = time;
-}
-
-sub guild_broken {
-	my ($self, $args) = @_;
-	my $flag = $args->{flag};
-
-	if ($flag == 2) {
-		error T("Guild can not be undone: there are still members in the guild\n");
-	} elsif ($flag == 1) {
-		error T("Guild can not be undone: invalid key\n");
-	} elsif ($flag == 0) {
-		message T("Guild broken.\n");
-		undef %{$char->{guild}};
-		undef $char->{guildID};
-		undef %guild;
-	} else {
-		error TF("Guild can not be undone: unknown reason (flag: %s)\n", $flag);
-	}
-}
-
-# TODO: test optimized unpacking
-sub guild_member_setting_list {
-	my ($self, $args) = @_;
-	my $newmsg;
-	my $msg = $args->{RAW_MSG};
-	my $msg_size = $args->{RAW_MSG_SIZE};
-	$self->decrypt(\$newmsg, substr($msg, 4, length($msg)-4));
-	$msg = substr($msg, 0, 4).$newmsg;
-
-	for (my $i = 4; $i < $msg_size; $i += 16) {
-		my ($gtIndex, $invite_punish, $ranking, $freeEXP) = unpack('V4', substr($msg, $i, 16)); # TODO: use ranking
-		# TODO: isn't there a nyble unpack or something and is this even correct?
-		$guild{positions}[$gtIndex]{invite} = ($invite_punish & 0x01) ? 1 : '';
-		$guild{positions}[$gtIndex]{punish} = ($invite_punish & 0x10) ? 1 : '';
-		$guild{positions}[$gtIndex]{feeEXP} = $freeEXP;
-	}
-}
-
-# TODO: test optimized unpacking
-sub guild_skills_list {
-	my ($self, $args) = @_;
-	my $msg = $args->{RAW_MSG};
-	my $msg_size = $args->{RAW_MSG_SIZE};
-	for (my $i = 6; $i < $args->{RAW_MSG_SIZE}; $i += 37) {
-
-		my ($skillID, $targetType, $level, $sp, $range,	$skillName, $up) = unpack('v V v3 Z24 C', substr($msg, $i, 37)); # TODO: use range
-
-		$skillName = bytesToString($skillName);
-		$guild{skills}{$skillName}{ID} = $skillID;
-		$guild{skills}{$skillName}{sp} = $sp;
-		$guild{skills}{$skillName}{up} = $up;
-		$guild{skills}{$skillName}{targetType} = $targetType;
-		if (!$guild{skills}{$skillName}{lv}) {
-			$guild{skills}{$skillName}{lv} = $level;
-		}
-	}
-}
-
-sub guild_chat {
-	my ($self, $args) = @_;
-	my ($chatMsgUser, $chatMsg); # Type: String
-	my $chat; # Type: String
-
-	return unless changeToInGameState();
-
-	$chat = bytesToString($args->{message});
-	if (($chatMsgUser, $chatMsg) = $chat =~ /(.*?)\s?: (.*)/) {
-		$chatMsgUser =~ s/ $//;
-		stripLanguageCode(\$chatMsg);
-		$chat = "$chatMsgUser : $chatMsg";
-	}
-
-	chatLog("g", "$chat\n") if ($config{'logGuildChat'});
-	# Translation Comment: Guild Chat
-	message TF("[Guild] %s\n", $chat), "guildchat";
-	# Only queue this if it's a real chat message
-	ChatQueue::add('g', 0, $chatMsgUser, $chatMsg) if ($chatMsgUser);
-
-	Plugins::callHook('packet_guildMsg', {
-		MsgUser => $chatMsgUser,
-		Msg => $chatMsg
-	});
-}
-
-sub guild_create_result {
-	my ($self, $args) = @_;
-	my $type = $args->{type};
-
-	my %types = (
-		0 => T("Guild create successful.\n"),
-		2 => T("Guild create failed: Guild name already exists.\n"),
-		3 => T("Guild create failed: Emperium is needed.\n")
-	);
-	if ($types{$type}) {
-		message $types{$type};
-	} else {
-		message TF("Guild create: Unknown error %s\n", $type);
-	}
-}
-
-sub guild_expulsionlist {
-	my ($self, $args) = @_;
-	for (my $i = 4; $i < $args->{RAW_MSG_SIZE}; $i += 88) {
-
-		my ($name, $acc, $cause) = unpack('Z24 Z24 Z40', substr($args->{RAW_MSG}, $i, 88));
-
-		$guild{expulsion}{$acc}{name} = bytesToString($name);
-		$guild{expulsion}{$acc}{cause} = bytesToString($cause);
-	}
-}
-
-sub guild_info {
-	my ($self, $args) = @_;
-	# Guild Info
-	foreach (qw(ID lv conMember maxMember average exp exp_next tax tendency_left_right tendency_down_up name master castles_string)) {
-		$guild{$_} = $args->{$_};
-	}
-	$guild{name} = bytesToString($args->{name});
-	$guild{master} = bytesToString($args->{master});
-	$guild{members}++; # count ourselves in the guild members count
-}
-
-sub guild_invite_result {
-	my ($self, $args) = @_;
-
-	my $type = $args->{type};
-
-	my %types = (
-		0 => T('Target is already in a guild.'),
-		1 => T('Target has denied.'),
-		2 => T('Target has accepted.'),
-		3 => T('Your guild is full.')
-	);
-	if ($types{$type}) {
-	    message TF("Guild join request: %s\n", $types{$type});
-	} else {
-	    message TF("Guild join request: Unknown %s\n", $type);
-	}
-}
-
-sub guild_location {
-	# FIXME: not implemented
-	my ($self, $args) = @_;
-	unless ($args->{x} > 0 && $args->{y} > 0) {
-		# delete locator for ID
-	} else {
-		# add/replace locator for ID
-	}
-}
-
-sub guild_leave {
-	my ($self, $args) = @_;
-
-	message TF("%s has left the guild.\n" .
-		"Reason: %s\n", bytesToString($args->{name}), bytesToString($args->{message})), "schat";
-}
-
-sub guild_expulsion {
-	my ($self, $args) = @_;
-
-	message TF("%s has been removed from the guild.\n" .
-		"Reason: %s\n", bytesToString($args->{name}), bytesToString($args->{message})), "schat";
-}
-
-# TODO: test optimized unpacking
-sub guild_members_list {
-	my ($self, $args) = @_;
-
-	my ($newmsg, $jobID);
-	my $msg = $args->{RAW_MSG};
-	my $msg_size = $args->{RAW_MSG_SIZE};
-	$self->decrypt(\$newmsg, substr($msg, 4, length($msg) - 4));
-	$msg = substr($msg, 0, 4) . $newmsg;
-
-	delete $guild{member};
-
-	my $c = 0;
-	my $gtIndex;
-	for (my $i = 4; $i < $msg_size; $i+=104){
-		($guild{member}[$c]{ID},
-		$guild{member}[$c]{charID},
-		$guild{member}[$c]{jobID},
-		$guild{member}[$c]{lv},
-		$guild{member}[$c]{contribution},
-		$guild{member}[$c]{online},
-		$gtIndex,
-		$guild{member}[$c]{name}) = unpack('a4 a4 x6 v2 V v x2 V x50 Z24', substr($msg, $i, 104)); # TODO: what are the unknown x's?
-
-		# TODO: we shouldn't store the guildtitle of a guildmember both in $guild{positions} and $guild{member}, instead we should just store the rank index of the guildmember and get the title from the $guild{positions}
-		$guild{member}[$c]{title} = $guild{positions}[$gtIndex]{title};
-		$guild{member}[$c]{name} = bytesToString($guild{member}[$c]{name});
-		$c++;
-	}
-
-}
-
-sub guild_member_online_status {
-	my ($self, $args) = @_;
-
-	foreach my $guildmember (@{$guild{member}}) {
-		if ($guildmember->{charID} eq $args->{charID}) {
-			if ($guildmember->{online} = $args->{online}) {
-				message TF("Guild member %s logged in.\n", $guildmember->{name}), "guildchat";
-			} else {
-				message TF("Guild member %s logged out.\n", $guildmember->{name}), "guildchat";
-			}
-			last;
-		}
-	}
-}
-
 sub misc_effect {
 	my ($self, $args) = @_;
 
@@ -2286,72 +2036,6 @@ sub misc_effect {
 		$actor->verb(T("%s use effect: %s\n"), T("%s uses effect: %s\n")),
 		$actor, defined $effectName{$args->{effect}} ? $effectName{$args->{effect}} : T("Unknown #")."$args->{effect}"
 	), 'effect'
-}
-
-sub guild_members_title_list {
-	my ($self, $args) = @_;
-
-	my $newmsg;
-	my $msg = $args->{RAW_MSG};
-	my $msg_size = $args->{RAW_MSG_SIZE};
-
-	$self->decrypt(\$newmsg, substr($msg, 4, length($msg) - 4));
-	$msg = substr($msg, 0, 4) . $newmsg;
-	my $gtIndex;
-	for (my $i = 4; $i < $msg_size; $i+=28) {
-		$gtIndex = unpack('V', substr($msg, $i, 4));
-		$guild{positions}[$gtIndex]{title} = bytesToString(unpack('Z24', substr($msg, $i + 4, 24)));
-	}
-}
-
-sub guild_name {
-	my ($self, $args) = @_;
-
-	my $guildID = $args->{guildID};
-	my $emblemID = $args->{emblemID};
-	my $mode = $args->{mode};
-	my $guildName = bytesToString($args->{guildName});
-	$char->{guild}{name} = $guildName;
-	$char->{guildID} = $guildID;
-	$char->{guild}{emblem} = $emblemID;
-
-	$messageSender->sendGuildMasterMemberCheck();	# Is this necessary?? (requests for guild info packet 014E)
-	$messageSender->sendGuildRequestInfo(0);	#requests for guild info packet 01B6 and 014C
-	$messageSender->sendGuildRequestInfo(1);	#requests for guild member packet 0166 and 0154
-	debug "guild name: $guildName\n";
-}
-
-sub guild_notice {
-	my ($self, $args) = @_;
-	stripLanguageCode(\$args->{subject});
-	stripLanguageCode(\$args->{notice});
-	# don't show the huge guildmessage notice if there is none
-	# the client does something similar to this...
-	if ($args->{subject} || $args->{notice}) {
-		my $msg = TF("---Guild Notice---\n"	.
-			"%s\n\n" .
-			"%s\n" .
-			"------------------\n", $args->{subject}, $args->{notice});
-		message $msg, "guildnotice";
-	}
-	#message	T("Requesting guild information...\n"), "info"; # Lets Disable this, its kinda useless.
-	$messageSender->sendGuildMasterMemberCheck();
-	# Replies 01B6 (Guild Info) and 014C (Guild Ally/Enemy List)
-	$messageSender->sendGuildRequestInfo(0);
-	# Replies 0166 (Guild Member Titles List) and 0154 (Guild Members List)
-	$messageSender->sendGuildRequestInfo(1);
-}
-
-sub guild_request {
-	my ($self, $args) = @_;
-
-	# Guild request
-	my $ID = $args->{ID};
-	my $name = bytesToString($args->{name});
-	message TF("Incoming Request to join Guild '%s'\n", $name);
-	$incomingGuild{'ID'} = $ID;
-	$incomingGuild{'Type'} = 1;
-	$timeout{'ai_guildAutoDeny'}{'time'} = time;
 }
 
 sub identify {
@@ -5419,23 +5103,6 @@ sub hack_shield_alarm {
 	Commands::run('relog 100000000');
 }
 
-sub guild_alliance {
-	my ($self, $args) = @_;
-	if ($args->{flag} == 0) {
-		message T("Already allied.\n"), "info";
-	} elsif ($args->{flag} == 1) {
-		message T("You rejected the offer.\n"), "info";
-	} elsif ($args->{flag} == 2) {
-		message T("You accepted the offer.\n"), "info";
-	} elsif ($args->{flag} == 3) {
-		message T("They have too any alliances\n"), "info";
-	} elsif ($args->{flag} == 4) {
-		message T("You have too many alliances.\n"), "info";
-	} else {
-		warning TF("flag: %s gave unknown results in: %s\n", $args->{flag}, $self->{packet_list}{$args->{switch}}->[0]);
-	}
-}
-
 sub talkie_box {
 	my ($self, $args) = @_;
 	message TF("%s's talkie box message: %s.\n", Actor::get($args->{ID})->nameString(), $args->{message}), "info";
@@ -5486,68 +5153,6 @@ sub taekwon_packets {
 	} else {
 		warning TF("flag: %s gave unknown results in: %s\n", $args->{flag}, $self->{packet_list}{$args->{switch}}->[0]);
 	}
-}
-
-sub guild_master_member {
-	my ($self, $args) = @_;
-	if ($args->{type} == 0xd7) {
-	} elsif ($args->{type} == 0x57) {
-		message T("You are not a guildmaster.\n"), "info";
-		return;
-	} else {
-		warning TF("type: %s gave unknown results in: %s\n", $args->{type}, $self->{packet_list}{$args->{switch}}->[0]);
-		return;
-	}
-	message T("You are a guildmaster.\n"), "info";
-}
-
-# 0152
-# TODO
-sub guild_emblem {
-	my ($self, $args) = @_;
-	debug $self->{packet_list}{$args->{switch}}->[0] . " " . join(', ', @{$args}{@{$self->{packet_list}{$args->{switch}}->[2]}}) . "\n";
-}
-
-# 0156
-# TODO
-sub guild_member_position_changed {
-	my ($self, $args) = @_;
-	debug $self->{packet_list}{$args->{switch}}->[0] . " " . join(', ', @{$args}{@{$self->{packet_list}{$args->{switch}}->[2]}}) . "\n";
-}
-
-# 01B4
-# TODO
-sub guild_emblem_update {
-	my ($self, $args) = @_;
-	debug $self->{packet_list}{$args->{switch}}->[0] . " " . join(', ', @{$args}{@{$self->{packet_list}{$args->{switch}}->[2]}}) . "\n";
-}
-
-# 0174
-# TODO
-sub guild_position_changed {
-	my ($self, $args) = @_;
-	debug $self->{packet_list}{$args->{switch}}->[0] . " " . join(', ', @{$args}{@{$self->{packet_list}{$args->{switch}}->[2]}}) . "\n";
-}
-
-# 0184
-# TODO
-sub guild_unally {
-	my ($self, $args) = @_;
-	debug $self->{packet_list}{$args->{switch}}->[0] . " " . join(', ', @{$args}{@{$self->{packet_list}{$args->{switch}}->[2]}}) . "\n";
-}
-
-# 0181
-# TODO
-sub guild_opposition_result {
-	my ($self, $args) = @_;
-	debug $self->{packet_list}{$args->{switch}}->[0] . " " . join(', ', @{$args}{@{$self->{packet_list}{$args->{switch}}->[2]}}) . "\n";
-}
-
-# 0185
-# TODO: this packet doesn't exist in eA
-sub guild_alliance_added {
-	my ($self, $args) = @_;
-	debug $self->{packet_list}{$args->{switch}}->[0] . " " . join(', ', @{$args}{@{$self->{packet_list}{$args->{switch}}->[2]}}) . "\n";
 }
 
 # 0192

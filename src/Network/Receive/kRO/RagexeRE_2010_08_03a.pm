@@ -22,7 +22,7 @@ sub new {
 	my $self = $class->SUPER::new(@_);
 	
 	my %packets = (
-		'0839' => ['guild_expulsion', 'Z40 Z24', [qw(message name)]],
+		'0839' => ['guild_expulsion', 'Z24 Z40', [qw(name message)]],
 	);
 	foreach my $switch (keys %packets) {
 		$self->{packet_list}{$switch} = $packets{$switch};
