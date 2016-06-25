@@ -34,7 +34,6 @@ use Modules 'register';
 use Globals;
 use Utils qw(stringToQuark quarkToString);
 use Utils::DataStructures qw(binAdd existsInList);
-use Utils::ObjectList;
 use Utils::Exceptions;
 use Log qw(message warning);
 use Translation qw(T TF);
@@ -57,6 +56,7 @@ our $current_plugin;
 # When a plugin is being (re)loaded, the the plugin's folder is set in this variable.
 our $current_plugin_folder;
 
+our $add_index ||= 0;
 our @plugins;
 our %hooks;
 
@@ -309,15 +309,19 @@ sub registered {
 # }
 sub addHook {
 	my ($hookName, $callback, $user_data) = @_;
-	my $hookList = $hooks{$hookName} ||= new ObjectList();
+	my $hookList = $hooks{$hookName} ||= [];
+
+	$add_index++;
 
 	my @entry;
 	$entry[CALLBACK] = $callback;
 	$entry[USER_DATA] = $user_data if defined($user_data);
+	$entry[INDEX] = $add_index;
+	push @$hookList, \@entry;
 
 	my @handle;
 	$handle[HOOKNAME] = stringToQuark($hookName);
-	$handle[INDEX] = $hookList->add(bless(\@entry, "Plugins::HookEntry"));
+	$handle[INDEX] = $add_index;
 	return bless(\@handle, 'Plugins::HookHandle');
 }
 
@@ -385,15 +389,14 @@ sub delHook {
 	} elsif (UNIVERSAL::isa($handle, 'Plugins::HookHandle') && defined $handle->[HOOKNAME]) {
 		my $hookName = quarkToString($handle->[HOOKNAME]);
 		my $hookList = $hooks{$hookName};
-		if ($hookList) {
-			my $entry = $hookList->get($handle->[INDEX]);
-			$hookList->remove($entry);
+		if ($hookList && $handle->[INDEX]) {
+			@$hookList = grep { $_->[INDEX] != $handle->[INDEX] } @$hookList;
 		}
 		delete $handle->[HOOKNAME];
 		delete $handle->[INDEX];
 		undef $handle;
 
-		if ($hookList && $hookList->size() == 0) {
+		if ($hookList && @$hookList == 0) {
 			delete $hooks{$hookName};
 		}
 
@@ -428,8 +431,8 @@ sub callHook {
 	my ($hookName, $argument) = @_;
 	my $hookList = $hooks{$hookName};
 	if ($hookList) {
-		my $items = $hookList->getItems();
-		foreach my $entry (@{$items}) {
+		my @items = @$hookList;
+		foreach my $entry (@items) {
 			$entry->[CALLBACK]->($hookName, $argument, $entry->[USER_DATA]);
 		}
 	}
