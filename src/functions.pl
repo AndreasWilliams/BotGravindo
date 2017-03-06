@@ -75,39 +75,39 @@ sub mainLoop {
 		mainLoop_initialized();
 		Plugins::callHook('mainLoop_post');
 
-	} elsif ($state == STATE_LOAD_PLUGINS) {
-		Log::message("$Settings::versionText\n");
-		loadPlugins();
-		return if $quit;
-		Log::message("\n");
-		Plugins::callHook('start');
-		$state = STATE_LOAD_DATA_FILES;
+		} elsif ($state == STATE_LOAD_PLUGINS) {
+			Log::message("$Settings::versionText\n");
+			loadPlugins();
+			return if $quit;
+			Log::message("\n");
+			Plugins::callHook('start');
+			$state = STATE_LOAD_DATA_FILES;
 
-	} elsif ($state == STATE_LOAD_DATA_FILES) {
-		loadDataFiles();
-		$state = STATE_INIT_NETWORKING;
+			} elsif ($state == STATE_LOAD_DATA_FILES) {
+				loadDataFiles();
+				$state = STATE_INIT_NETWORKING;
 
-	} elsif ($state == STATE_INIT_NETWORKING) {
-		initNetworking();
-		$state = STATE_INIT_PORTALS_DATABASE;
+				} elsif ($state == STATE_INIT_NETWORKING) {
+					initNetworking();
+					$state = STATE_INIT_PORTALS_DATABASE;
 
-	} elsif ($state == STATE_INIT_PORTALS_DATABASE) {
-		initPortalsDatabase();
-		$state = STATE_PROMPT;
+					} elsif ($state == STATE_INIT_PORTALS_DATABASE) {
+						initPortalsDatabase();
+						$state = STATE_PROMPT;
 
-	} elsif ($state == STATE_PROMPT) {
-		promptFirstTimeInformation();
-		$state = STATE_FINAL_INIT;
+						} elsif ($state == STATE_PROMPT) {
+							promptFirstTimeInformation();
+							$state = STATE_FINAL_INIT;
 
-	} elsif ($state == STATE_FINAL_INIT) {
-		finalInitialization();
-		$state = STATE_INITIALIZED;
+							} elsif ($state == STATE_FINAL_INIT) {
+								finalInitialization();
+								$state = STATE_INITIALIZED;
 
-	} else {
-		die "Unknown state $state.";
-	}
+								} else {
+									die "Unknown state $state.";
+								}
 
-	Benchmark::end('mainLoop') if DEBUG;
+								Benchmark::end('mainLoop') if DEBUG;
 	# Reload any modules that requested to be reloaded
 	Modules::reloadAllInQueue();
 }
@@ -125,12 +125,12 @@ sub loadPlugins {
 			"%s",
 			$Settings::NAME, $e->message));
 		$quit = 1;
-	} elsif ($e = caught('Plugin::DeniedException')) {
-		$interface->errorDialog($e->message);
-		$quit = 1;
-	} elsif ($@) {
-		die $@;
-	}
+		} elsif ($e = caught('Plugin::DeniedException')) {
+			$interface->errorDialog($e->message);
+			$quit = 1;
+			} elsif ($@) {
+				die $@;
+			}
 
 	# Allow plugins to use command line arguments.
 	Plugins::callHook( 'parse_command_line' );
@@ -188,8 +188,8 @@ sub loadDataFiles {
 		loader => [\&parseSectionedFile, \%masterServers],
 		onLoaded => \&processServerSettings );
 	# Load RecvPackets.txt second
- 	Settings::addTableFile(Settings::getRecvPacketsFilename(),
- 		loader => [\&parseRecvpackets, \%rpackets]);
+	Settings::addTableFile(Settings::getRecvPacketsFilename(),
+		loader => [\&parseRecvpackets, \%rpackets]);
 
 	# Add 'Old' table pack, if user set
 	if ( $sys{locale_compat} == 1) {
@@ -200,9 +200,9 @@ sub loadDataFiles {
 			foreach my $dir ( split($pathDelimiter, $options{tables}) ) {
 				push @new_tables, $dir . '/Old';
 			}
-		} else {
-			push @new_tables, 'tables/Old';
-		}
+			} else {
+				push @new_tables, 'tables/Old';
+			}
 		# now set up new path to table folder
 		Settings::setTablesFolders(@new_tables, Settings::getTablesFolders());
 	}
@@ -292,19 +292,19 @@ sub loadDataFiles {
 			"The file %s must be in UTF-8 encoding.",
 			$e->textfile));
 		$quit = 1;
-	} elsif ($e = caught('FileNotFoundException')) {
-		$interface->errorDialog(TF("Unable to load the file %s.", $e->filename));
-		$quit = 1;
-	} elsif ($@) {
-		die $@;
-	}
-	return if $quit;
+		} elsif ($e = caught('FileNotFoundException')) {
+			$interface->errorDialog(TF("Unable to load the file %s.", $e->filename));
+			$quit = 1;
+			} elsif ($@) {
+				die $@;
+			}
+			return if $quit;
 
-	Plugins::callHook('start3');
+			Plugins::callHook('start3');
 
-	if ($config{'adminPassword'} eq 'x' x 10) {
-		Log::message(T("\nAuto-generating Admin Password due to default...\n"));
-		configModify("adminPassword", vocalString(8));
+			if ($config{'adminPassword'} eq 'x' x 10) {
+				Log::message(T("\nAuto-generating Admin Password due to default...\n"));
+				configModify("adminPassword", vocalString(8));
 	#} elsif ($config{'adminPassword'} eq '') {
 	#	# This is where we protect the stupid from having a blank admin password
 	#	Log::message(T("\nAuto-generating Admin Password due to blank...\n"));
@@ -328,17 +328,17 @@ sub initNetworking {
 			# Inject DLL to running Ragnarok process
 			require Network::XKore;
 			$net = new Network::XKore;
-		} elsif ($XKore_version eq "2") {
+			} elsif ($XKore_version eq "2") {
 			# Run as a proxy bot, allowing Ragnarok to connect while botting
 			require Network::DirectConnection;
 			require Network::XKore2;
 			$net = new Network::DirectConnection;
 			Network::XKore2::start();
-		} elsif ($XKore_version eq "3") {
+			} elsif ($XKore_version eq "3") {
 			# Proxy Ragnarok client connection
 			require Network::XKoreProxy;
 			$net = new Network::XKoreProxy;
-		} else {
+			} else {
 			# Run as a standalone bot, with no interface to the official RO client
 			require Network::DirectConnection;
 			$net = new Network::DirectConnection;
@@ -381,45 +381,45 @@ sub initPortalsDatabase {
 		Log::message(T("found new portals!\n"));
 		my $choice = $config{portalCompile} ? 0 : $interface->showMenu(
 			T("New portals have been added to the portals database. " .
-			"The portals database must be compiled before the new portals can be used. " .
-			"Would you like to compile portals now?\n"),
+				"The portals database must be compiled before the new portals can be used. " .
+				"Would you like to compile portals now?\n"),
 			[T("Yes, compile now."), T("No, don't compile it.")],
 			title => T("Compile portals?"));
 		if ($choice == 0) {
 			Log::message(T("compiling portals") . "\n\n");
 			compilePortals();
-		} else {
-			Log::message(T("skipping compile") . "\n\n");
-		}
-	} else {
-		Log::message(T("none found\n\n"));
-	}
-}
-
-sub promptFirstTimeInformation {
-	if ($net->version != 1) {
-		my $msg;
-		if (!$config{username}) {
-			$msg = $interface->query(T("Please enter your Ragnarok Online username."));
-			if (!defined($msg)) {
-				$quit = 1;
-				return;
+			} else {
+				Log::message(T("skipping compile") . "\n\n");
 			}
-			configModify('username', $msg, 1);
-		}
-		if (!$config{password}) {
-			$msg = $interface->query(T("Please enter your Ragnarok Online password."), isPassword => 1);
-			if (!defined($msg)) {
-				$quit = 1;
-				return;
+			} else {
+				Log::message(T("none found\n\n"));
 			}
-			configModify('password', $msg, 1);
 		}
-	}
-}
 
-sub processServerSettings {
-	my $filename = shift;
+		sub promptFirstTimeInformation {
+			if ($net->version != 1) {
+				my $msg;
+				if (!$config{username}) {
+					$msg = $interface->query(T("Please enter your Ragnarok Online username."));
+					if (!defined($msg)) {
+						$quit = 1;
+						return;
+					}
+					configModify('username', $msg, 1);
+				}
+				if (!$config{password}) {
+					$msg = $interface->query(T("Please enter your Ragnarok Online password."), isPassword => 1);
+					if (!defined($msg)) {
+						$quit = 1;
+						return;
+					}
+					configModify('password', $msg, 1);
+				}
+			}
+		}
+
+		sub processServerSettings {
+			my $filename = shift;
 	# Select Master server on Demand
 
 	if ($config{master} eq "" || $config{master} =~ /^\d+$/ || !exists $masterServers{$config{master}}) {
@@ -432,15 +432,15 @@ sub processServerSettings {
 		if ($choice == -1) {
 			$quit = 1;
 			return;
-		} else {
-			bulkConfigModify({
-				master => $servers[$choice],
+			} else {
+				bulkConfigModify({
+					master => $servers[$choice],
 				# ask for server and character if we're connected to "new" master server
 				server => '',
 				char => '',
-			}, 1);
+				}, 1);
+			}
 		}
-	}
 
 	# Parse server settings
 	my $master = $masterServer = $masterServers{$config{master}};
@@ -456,18 +456,18 @@ sub processServerSettings {
 	my @options;
 	if ($config{'XKore'} eq "1") {
 		@options = 'serverType';
-	} else {
-		@options = qw(ip port master_version version serverType);
-	}
-	if (my @missingOptions = grep { $master->{$_} eq '' } @options) {
-		$interface->errorDialog(TF("Required server options are not set: %s\n", "@missingOptions"));
-		$quit = 1;
-		return;
-	}
-	
-	foreach my $serverOption ('storageEncryptKey', 'gameGuard','paddedPackets','paddedPackets_attackID',
-				'paddedPackets_skillUseID') {
-		if ($master->{$serverOption} ne '' && !(defined $config{$serverOption})) {
+		} else {
+			@options = qw(ip port master_version version serverType);
+		}
+		if (my @missingOptions = grep { $master->{$_} eq '' } @options) {
+			$interface->errorDialog(TF("Required server options are not set: %s\n", "@missingOptions"));
+			$quit = 1;
+			return;
+		}
+
+		foreach my $serverOption ('storageEncryptKey', 'gameGuard','paddedPackets','paddedPackets_attackID',
+			'paddedPackets_skillUseID') {
+			if ($master->{$serverOption} ne '' && !(defined $config{$serverOption})) {
 			# Delete Wite Space
 			# why only one, if deleting any?
 			$master->{$serverOption} =~ s/^\s//;
@@ -577,7 +577,7 @@ sub initConfChange {
 	$i = 0;
 	while (exists $config{"autoConfChange_$i"}) {
 		$ai_v{"autoConfChange_${i}_timeout"} = $config{"autoConfChange_${i}_minTime"} +
-			int(rand($config{"autoConfChange_${i}_varTime"}));
+		int(rand($config{"autoConfChange_${i}_varTime"}));
 		$i++;
 	}
 	$lastConfChangeTime = time;
@@ -729,16 +729,67 @@ sub mainLoop_initialized {
 
 	# Receive and handle data from the RO server
 	my $data = $net->serverRecv;
+	my $a = "";
 	if (defined($data) && length($data) > 0) {
-		Benchmark::begin("parseMsg") if DEBUG;
+$a++;
+				
 
-		$incomingMessages->add($data);
-		$net->clientSend($_) for $packetParser->process(
-			$incomingMessages, $packetParser
-		);
-		$net->clientFlush() if (UNIVERSAL::isa($net, 'Network::XKoreProxy'));
-		Benchmark::end("parseMsg") if DEBUG;
-	}
+
+		if ($net->getState() < 2){
+			my @hex  = split / *\ + */,getHex($data);
+			my $loKey ="";
+			my $tempKey="";
+
+
+			$loKey .=giveHex("10");
+			$loKey .=giveHex("E1");
+			$loKey .=giveHex("5B");
+			$loKey .=giveHex("49");
+			$loKey .=giveHex("14");
+			$loKey .=giveHex("E5");
+			$loKey .=giveHex("5F");
+			$loKey .=giveHex("4D");
+			$loKey .=giveHex("18");
+			$loKey .=giveHex("E9");
+			$loKey .=giveHex("53");
+			$loKey .=giveHex("41");
+			$loKey .=giveHex("1C");
+			$loKey .=giveHex("ED");
+			$loKey .=giveHex("57");
+			$loKey .=giveHex("45");
+			my @loKey2  = split / *\ + */,getHex($loKey);
+			if(($hex[0]=="D0")and($hex[1]=="FC")){
+
+				$data="";
+				$data=giveHex("DC");
+				$data.=giveHex("01");
+				$data.=giveHex("14");
+				$data.=giveHex("00");
+
+				for (my $i=4;$i < @hex; $i++) {
+
+					my $tempKey=hex($hex[$i]) ^  hex($loKey2[$i-4]);
+					$tempKey=sprintf("%x", $tempKey);
+					if(length($tempKey)==1){
+						$tempKey="0".$tempKey;
+					}
+					$data.=giveHex($tempKey);
+
+				}
+
+
+			}
+
+     }
+     Benchmark::begin("parseMsg") if DEBUG;
+
+     $incomingMessages->add($data);
+     $net->clientSend($_) for $packetParser->process(
+     	$incomingMessages, $packetParser
+     	);
+     $net->clientFlush() if (UNIVERSAL::isa($net, 'Network::XKoreProxy'));
+     Benchmark::end("parseMsg") if DEBUG;
+ }
 
 	# Receive and handle data from the RO client
 	$data = $net->clientRecv;
@@ -748,7 +799,7 @@ sub mainLoop_initialized {
 		$outgoingClientMessages->add($data);
 		$messageSender->sendToServer($_) for $messageSender->process(
 			$outgoingClientMessages, $clientPacketHandler
-		);
+			);
 	}
 
 	# GameGuard support
@@ -790,7 +841,7 @@ sub mainLoop_initialized {
 	###### Other stuff that's run in the main loop #####
 
 	if ($config{'autoRestart'} && time - $KoreStartTime > $config{'autoRestart'}
-	 && $net->getState() == Network::IN_GAME && !AI::inQueue(qw/attack take items_take/)) {
+		&& $net->getState() == Network::IN_GAME && !AI::inQueue(qw/attack take items_take/)) {
 		message T("\nAuto-restarting!!\n"), "system";
 
 		if ($config{'autoRestartSleep'}) {
@@ -798,36 +849,36 @@ sub mainLoop_initialized {
 			$timeout_ex{'master'}{'timeout'} = $sleeptime;
 			$sleeptime = $timeout{'reconnect'}{'timeout'} if ($sleeptime < $timeout{'reconnect'}{'timeout'});
 			message TF("Sleeping for %s\n", timeConvert($sleeptime)), "system";
-		} else {
-			$timeout_ex{'master'}{'timeout'} = $timeout{'reconnect'}{'timeout'};
+			} else {
+				$timeout_ex{'master'}{'timeout'} = $timeout{'reconnect'}{'timeout'};
+			}
+
+			$timeout_ex{'master'}{'time'} = time;
+			$KoreStartTime = time + $timeout_ex{'master'}{'timeout'};
+			AI::clear();
+			AI::SlaveManager::clear();
+			undef %ai_v;
+			$net->serverDisconnect;
+			$net->setState(Network::NOT_CONNECTED);
+			undef $conState_tries;
+			initRandomRestart();
 		}
 
-		$timeout_ex{'master'}{'time'} = time;
-		$KoreStartTime = time + $timeout_ex{'master'}{'timeout'};
-		AI::clear();
-		AI::SlaveManager::clear();
-		undef %ai_v;
-		$net->serverDisconnect;
-		$net->setState(Network::NOT_CONNECTED);
-		undef $conState_tries;
-		initRandomRestart();
-	}
-	
-	Misc::checkValidity("mainLoop_part2.3");
+		Misc::checkValidity("mainLoop_part2.3");
 
 	# Automatically switch to a different config file
 	# based on certain conditions
 	if ($net->getState() == Network::IN_GAME && timeOut($AI::Timeouts::autoConfChangeTime, 0.5)
-	 && !AI::inQueue(qw/attack take items_take/)) {
+		&& !AI::inQueue(qw/attack take items_take/)) {
 		my $selected;
 		my $i = 0;
 		while (exists $config{"autoConfChange_$i"}) {
 			if ($config{"autoConfChange_$i"}
-			 && ( !$config{"autoConfChange_${i}_minTime"} || timeOut($lastConfChangeTime, $ai_v{"autoConfChange_${i}_timeout"}) )
-			 && inRange($char->{lv}, $config{"autoConfChange_${i}_lvl"})
-			 && inRange($char->{lv_job}, $config{"autoConfChange_${i}_joblvl"})
-			 && ( !$config{"autoConfChange_${i}_isJob"} || $jobs_lut{$char->{jobID}} eq $config{"autoConfChange_${i}_isJob"} )
-			) {
+				&& ( !$config{"autoConfChange_${i}_minTime"} || timeOut($lastConfChangeTime, $ai_v{"autoConfChange_${i}_timeout"}) )
+				&& inRange($char->{lv}, $config{"autoConfChange_${i}_lvl"})
+				&& inRange($char->{lv_job}, $config{"autoConfChange_${i}_joblvl"})
+				&& ( !$config{"autoConfChange_${i}_isJob"} || $jobs_lut{$char->{jobID}} eq $config{"autoConfChange_${i}_isJob"} )
+				) {
 				$selected = $config{"autoConfChange_$i"};
 				last;
 			}
@@ -850,25 +901,25 @@ sub mainLoop_initialized {
 
 			my $master = $masterServer = $masterServers{$config{'master'}};
 			if ($net->version != 1
-			 && $oldMaster->{ip} ne $master->{ip}
-			 || $oldMaster->{port} ne $master->{port}
-			 || $oldMaster->{master_version} ne $master->{master_version}
-			 || $oldMaster->{version} ne $master->{version}
-			 || $oldUsername ne $config{'username'}
-			 || $oldChar ne $config{'char'}) {
+				&& $oldMaster->{ip} ne $master->{ip}
+				|| $oldMaster->{port} ne $master->{port}
+				|| $oldMaster->{master_version} ne $master->{master_version}
+				|| $oldMaster->{version} ne $master->{version}
+				|| $oldUsername ne $config{'username'}
+				|| $oldChar ne $config{'char'}) {
 				AI::clear;
 				AI::SlaveManager::clear();
 				relog();
-			} else {
-				AI::clear("move", "route", "mapRoute");
-				AI::SlaveManager::clear("move", "route", "mapRoute");
+				} else {
+					AI::clear("move", "route", "mapRoute");
+					AI::SlaveManager::clear("move", "route", "mapRoute");
+				}
+
+				initConfChange();
 			}
 
-			initConfChange();
+			$AI::Timeouts::autoConfChangeTime = time;
 		}
-
-		$AI::Timeouts::autoConfChangeTime = time;
-	}
 
 	#processStatisticsReporting() unless ($sys{sendAnonymousStatisticReport} eq "0");
 
@@ -893,10 +944,10 @@ sub mainLoop_initialized {
 			$char->{lv_job}, $jobPercent . '%',
 			$weight, $pos, $Settings::NAME);
 
-	} elsif ($net->getState() == Network::NOT_CONNECTED) {
+		} elsif ($net->getState() == Network::NOT_CONNECTED) {
 		# Translation Comment: Interface Title
 		$title = TF("%sNot connected - %s", $charName, $Settings::NAME);
-	} else {
+		} else {
 		# Translation Comment: Interface Title
 		$title = TF("%sConnecting - %s", $charName, $Settings::NAME);
 	}
